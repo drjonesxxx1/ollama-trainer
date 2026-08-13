@@ -1,0 +1,25 @@
+{
+  "name": "ai-trainer",
+  "version": "1.0.0",
+  "description": "Proxify-ADB Autonomous Fleet Orchestrator & Unsloth MoE GRPO Training Control Center",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "ws": "^8.18.0"
+  },
+  "keywords": [
+    "unsloth",
+    "moe-pruning",
+    "grpo",
+    "proxmox",
+    "adb-orchestration",
+    "deepseek"
+  ],
+  "author": "drjones",
+  "license": "MIT"
+}
