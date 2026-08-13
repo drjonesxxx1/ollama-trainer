@@ -1,89 +1,104 @@
-/* Cyberpunk Glassmorphism Design Token System */
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Cyberpunk Design System & Styling Rules */
 
-:root {
-  --bg-dark: #07090E;
-  --panel-bg: rgba(15, 23, 42, 0.75);
-  --cyan-glow: #00F0FF;
-  --violet-glow: #8A2BE2;
-  --emerald-glow: #00FF9D;
-  --amber-glow: #FFB800;
-  --rose-glow: #FF3366;
-}
-
-body {
-  background-color: var(--bg-dark);
-  background-image: 
-    radial-gradient(at 0% 0%, rgba(0, 240, 255, 0.08) 0px, transparent 50%),
-    radial-gradient(at 100% 0%, rgba(138, 43, 226, 0.08) 0px, transparent 50%),
-    radial-gradient(at 50% 100%, rgba(0, 255, 157, 0.04) 0px, transparent 50%);
-  font-family: 'Inter', sans-serif;
-  color: #F8FAFC;
-}
-
-/* Glassmorphism Panel Component */
-.glass-panel {
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+/* Cyber Card Glassmorphism */
+.cyber-card {
+  background: rgba(13, 18, 30, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  transition: all 0.3s ease;
 }
 
-.glass-panel:hover {
-  border-color: rgba(0, 240, 255, 0.2);
+.cyber-card:hover {
+  border-color: rgba(0, 240, 255, 0.25);
+  box-shadow: 0 15px 35px -10px rgba(0, 240, 255, 0.15);
 }
 
-/* Buttons */
-.btn {
-  @apply px-4 py-2 rounded-xl text-xs font-bold font-mono tracking-wider transition-all duration-200 flex items-center gap-2 cursor-pointer border shadow-lg;
+/* Neon Buttons */
+.btn-neon {
+  padding: 0.5rem 1rem;
+  border-radius: 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  font-family: 'Fira Code', monospace;
+  letter-spacing: 0.05em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: inline-flex;
+  items-center: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+  user-select: none;
 }
 
 .btn-emerald {
   background: linear-gradient(135deg, rgba(0, 255, 157, 0.2), rgba(0, 200, 120, 0.1));
   border-color: rgba(0, 255, 157, 0.4);
   color: #00FF9D;
+  box-shadow: 0 0 15px rgba(0, 255, 157, 0.15);
 }
-.btn-emerald:hover {
+.btn-emerald:hover:not(:disabled) {
   background: rgba(0, 255, 157, 0.3);
-  box-shadow: 0 0 20px rgba(0, 255, 157, 0.4);
+  box-shadow: 0 0 25px rgba(0, 255, 157, 0.5);
+  transform: translateY(-1px);
 }
 
 .btn-rose {
   background: linear-gradient(135deg, rgba(255, 51, 102, 0.2), rgba(200, 40, 80, 0.1));
   border-color: rgba(255, 51, 102, 0.4);
   color: #FF3366;
+  box-shadow: 0 0 15px rgba(255, 51, 102, 0.15);
 }
-.btn-rose:hover {
+.btn-rose:hover:not(:disabled) {
   background: rgba(255, 51, 102, 0.3);
-  box-shadow: 0 0 20px rgba(255, 51, 102, 0.4);
+  box-shadow: 0 0 25px rgba(255, 51, 102, 0.5);
+  transform: translateY(-1px);
 }
 
 .btn-ghost {
-  background: rgba(30, 41, 59, 0.6);
+  background: rgba(30, 41, 59, 0.7);
   border-color: rgba(255, 255, 255, 0.1);
   color: #94A3B8;
 }
-.btn-ghost:hover {
-  background: rgba(51, 65, 85, 0.8);
-  color: #FFF;
+.btn-ghost:hover:not(:disabled) {
+  background: rgba(51, 65, 85, 0.9);
+  color: #FFFFFF;
+  border-color: rgba(0, 240, 255, 0.3);
 }
 
 .btn-purple {
   background: linear-gradient(135deg, rgba(138, 43, 226, 0.25), rgba(100, 30, 180, 0.15));
   border-color: rgba(138, 43, 226, 0.5);
   color: #C084FC;
+  box-shadow: 0 0 15px rgba(138, 43, 226, 0.15);
 }
-.btn-purple:hover {
+.btn-purple:hover:not(:disabled) {
   background: rgba(138, 43, 226, 0.35);
-  box-shadow: 0 0 20px rgba(138, 43, 226, 0.4);
+  box-shadow: 0 0 25px rgba(138, 43, 226, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-neon:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 /* Status Badges */
 .status-badge {
-  @apply px-3 py-1 rounded-full text-[11px] font-bold font-mono tracking-widest border uppercase inline-flex items-center gap-1.5;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  font-family: 'Fira Code', monospace;
+  letter-spacing: 0.05em;
+  border: 1px solid transparent;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  text-transform: uppercase;
 }
 
 .status-idle {
@@ -96,12 +111,13 @@ body {
   background: rgba(0, 240, 255, 0.15);
   border-color: rgba(0, 240, 255, 0.4);
   color: #00F0FF;
-  animation: pulse-glow 2s infinite;
+  box-shadow: 0 0 15px rgba(0, 240, 255, 0.3);
+  animation: badge-pulse 2s infinite;
 }
 
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.3); }
-  50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.7); }
+@keyframes badge-pulse {
+  0%, 100% { box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+  50% { box-shadow: 0 0 25px rgba(0, 240, 255, 0.6); }
 }
 
 @keyframes spin-reverse {
@@ -112,25 +128,35 @@ body {
   animation: spin-reverse 3s linear infinite;
 }
 
-/* Scrollbar Customization */
+/* Custom Scrollbar */
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(15, 23, 42, 0.6);
+  background: rgba(7, 9, 14, 0.8);
 }
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(51, 65, 85, 0.8);
-  border-radius: 3px;
+  border-radius: 4px;
 }
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 240, 255, 0.5);
+  background: rgba(0, 240, 255, 0.6);
 }
 
-/* Terminal Log Badges */
+/* Terminal Log Stream Elements */
 .log-line {
-  @apply font-mono text-xs flex items-start gap-2 py-0.5 border-b border-slate-900/40 hover:bg-slate-900/50 px-1 rounded transition;
+  font-family: 'Fira Code', monospace;
+  font-size: 0.75rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  transition: background 0.15s ease;
+}
+.log-line:hover {
+  background: rgba(30, 41, 59, 0.4);
 }
 .log-timestamp {
   color: #64748B;
@@ -143,8 +169,19 @@ body {
 .badge-error { background: rgba(255, 51, 102, 0.15); color: #FF3366; border: 1px solid rgba(255, 51, 102, 0.3); }
 
 .log-filter-btn {
-  @apply px-2 py-0.5 rounded text-[10px] font-bold text-slate-400 hover:text-white transition;
+  padding: 0.2rem 0.5rem;
+  border-radius: 0.375rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  font-family: 'Fira Code', monospace;
+  color: #94A3B8;
+  transition: all 0.15s ease;
+}
+.log-filter-btn:hover {
+  color: #FFFFFF;
 }
 .log-filter-btn.active {
-  @apply bg-cyan-500/20 text-cyan-400 border border-cyan-500/40;
+  background: rgba(0, 240, 255, 0.2);
+  color: #00F0FF;
+  border: 1px solid rgba(0, 240, 255, 0.4);
 }
