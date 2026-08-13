@@ -1,0 +1,6 @@
+{
+  "name": "Ollama Unsloth Studio",
+  "description": "Comprehensive browser platform to fine-tune, prune, quantize, distill, create MoE models, and export optimized GGUFs with MCP plugins directly to Ollama.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
