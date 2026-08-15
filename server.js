@@ -47,8 +47,8 @@ let pipelineState = {
     vramTotalGb: 16.0,
     ramUsedGb: 34.5,
     ramTotalGb: 64.0,
-    activeVmCount: 14,
-    adbOnlineCount: 14,
+    datasetPairs: 2500,
+    retainedExperts: 64,
     grpoSteps: 0,
     grpoTotalSteps: 300,
     currentReward: 0.0,
@@ -162,7 +162,7 @@ function simulateStageProgress(stageObj) {
 
     // Generate telemetry logs based on stage
     if (stageObj.id === 'harvester' && elapsed % 1000 === 0) {
-      sendLog('HARNESS', `Scraped /etc/dnsmasq.d/ -> Active Leases: 14 | ADB nodes on 10.30.20.0/24: 14`, 'HARVESTER');
+      sendLog('HARNESS', `Calibrated instruction pairs -> 2,500 training pairs loaded into GPU memory`, 'HARVESTER');
     } else if (stageObj.id === 'pruner' && elapsed % 1500 === 0) {
       const expertsDropped = Math.round((elapsed / totalMs) * 192);
       sendLog('WARN', `Profiling Router Gates Layer ${Math.round((elapsed / totalMs) * 61)}/61 -> Dropping trivia experts: ${expertsDropped}/192`, 'PRUNER');

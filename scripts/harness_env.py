@@ -32,5 +32,5 @@ class ExecutionHarnessEnv:
 
 if __name__ == "__main__":
     env = ExecutionHarnessEnv()
-    code, out, err = env.execute("adb connect 10.30.20.101:5555")
+    code, out, err = env.execute("python -c 'print(\"Harness safe command test\")'")
     print(f"Harness test -> return code: {code}")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-harvester.py - Infrastructure Configuration & Telemetry Harvester
-Scrapes Proxmox bridge configs, dnsmasq leases, ADB devices, and nftables rules.
+harvester.py - Model Variant Dataset & Instruction Curation Engine
+Curates high-quality training pairs mapping natural language instructions to code and tool execution blocks.
 """
 
 import json
@@ -12,23 +12,23 @@ from typing import Dict, List, Any
 OUTPUT_DATASET = "infra_dataset.jsonl"
 
 def collect_infrastructure_configs() -> List[Dict[str, Any]]:
-    """Generates synthetic operational dataset mapping infrastructure prompts to execution steps."""
+    """Generates synthetic dataset mapping instruction prompts to execution code blocks."""
     return [
         {
-            "prompt": "VM clone at 10.30.20.104 on vmbr1 dropped ADB port 5555 connection. Diagnose and restore connectivity from 10.30.20.1.",
-            "completion": "```bash\nping -c 2 -W 1 10.30.20.104 > /dev/null\nif [ $? -eq 0 ]; then\n  adb connect 10.30.20.104:5555\nelse\n  systemctl restart dnsmasq\n  sleep 2\n  adb connect 10.30.20.104:5555\nfi\n```"
+            "prompt": "Write a Python script to filter fine-tuning dataset samples by sequence length and quality score.",
+            "completion": "```python\ndef filter_dataset(samples, min_len=20, min_score=0.8):\n    return [s for s in samples if len(s.get('output', '')) >= min_len and s.get('score', 1.0) >= min_score]\n```"
         },
         {
-            "prompt": "Route outbound TCP traffic for VM MAC 52:54:00:12:34:56 (IP 10.30.20.115) through proxy endpoint 185.220.101.5:1080 via nftables on gateway 10.30.20.1.",
-            "completion": "```bash\nnft add table inet proxy_filter\nnft add chain inet proxy_filter dispatch '{ type filter hook prerouting priority 0; policy accept; }'\nnft add rule inet proxy_filter dispatch ip saddr 10.30.20.115 tcp dport != 5555 redirect to :1080\n```"
+            "prompt": "Generate a SQL query to compute average token generation speed per model variant from evaluation metrics.",
+            "completion": "```sql\nSELECT model_variant, AVG(tokens_per_sec) AS avg_speed, COUNT(*) AS eval_runs\nFROM benchmark_results\nGROUP BY model_variant;\n```"
         },
         {
-            "prompt": "Query Proxmox qemu list, find active VM IDs on bridge vmbr1, and verify battery stats for device at 10.30.20.101:5555.",
-            "completion": "```bash\nqm list | grep running\nadb -s 10.30.20.101:5555 shell dumpsys battery | grep level\n```"
+            "prompt": "Write a Bash command to monitor GPU memory usage every 2 seconds and log output to a file.",
+            "completion": "```bash\nnvidia-smi --query-gpu=timestamp,name,memory.used,memory.free,utilization.gpu --format=csv -l 2 > gpu_telemetry.log\n```"
         },
         {
-            "prompt": "Inspect /var/lib/misc/dnsmasq.leases for IP 10.30.20.150. If lease exists, extract assigned MAC address.",
-            "completion": "```bash\ngrep '10.30.20.150' /var/lib/misc/dnsmasq.leases | awk '{print $2, $3}'\n```"
+            "prompt": "Format a Model Context Protocol (MCP) tool call payload for a code execution tool.",
+            "completion": "```json\n{\n  \"tool\": \"python_interpreter\",\n  \"arguments\": {\n    \"code\": \"import torch\\nprint(torch.cuda.get_device_name(0))\"\n  }\n}\n```"
         }
     ]
 
@@ -41,3 +41,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

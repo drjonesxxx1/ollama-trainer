@@ -19,7 +19,7 @@ def prune_experts(model_path: str = "deepseek-ai/DeepSeek-V3-Base", retain_count
         "architectures": ["DeepSeekV3ForCausalLM"],
         "n_routed_experts": retain_count,
         "num_experts_per_tok": 4,
-        "pruned_domain": "infrastructure_networking_adb",
+        "pruned_domain": "general_trivia_non_essential",
         "original_experts": total_experts,
         "retained_experts": retain_count
     }

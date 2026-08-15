@@ -6,16 +6,17 @@ import json
 
 def get_state():
     return {
-        "gateway": "10.30.20.1",
-        "subnet": "10.30.20.0/24",
-        "bridges": ["vmbr0", "vmbr1"],
-        "active_vms": 14,
-        "adb_nodes": ["10.30.20.101:5555", "10.30.20.102:5555"]
+        "target_gpu": "NVIDIA RTX 4080 Super",
+        "vram_capacity_gb": 16.0,
+        "system_ram_gb": 64.0,
+        "cuda_status": "ready",
+        "active_models": ["qwen2.5-coder:32b", "llama3.1:8b"]
     }
 
 def main():
     state = get_state()
-    print(f"[SYSTEM INFRASTRUCTURE STATE TELEMETRY]: {json.dumps(state)}")
+    print(f"[MODEL TRAINER STATE TELEMETRY]: {json.dumps(state)}")
 
 if __name__ == "__main__":
     main()
+

@@ -219,4 +219,53 @@ export type ActiveTab =
   | "training"
   | "deploy"
   | "ollama"
-  | "arena";
+  | "arena"
+  | "online_learning"
+  | "curiosity"
+  | "world_model"
+  | "metacognition";
+
+// ─── AGI PARADIGM 1: Continuous Real-Time Plasticity ───
+export interface OnlineLearningConfig {
+  ewcLambda: number;              // Fisher penalty strength (0.1 – 100.0)
+  replayBufferSize: number;       // episodic memory ring buffer capacity
+  microUpdateFrequency: number;   // every N interactions trigger LoRA micro-update
+  onlineLearningRate: number;     // lr for online gradient steps
+  replayFraction: number;         // fraction of replay buffer sampled per update (0.0–1.0)
+  enableHotSwap: boolean;         // auto-merge LoRA & reload into Ollama
+}
+
+// ─── AGI PARADIGM 2: Intrinsic Curiosity & Autonomous Goals ───
+export interface CuriosityConfig {
+  explorationRate: number;        // epsilon for exploration vs exploitation (0.0–1.0)
+  epsilonDecayRate: number;       // per-step epsilon decay
+  rndHiddenDim: number;           // RND predictor/target network hidden size
+  goalQueueDepth: number;         // max autonomous goals in priority queue
+  noveltyThreshold: number;       // minimum RND error to consider "novel"
+  explorationBudget: number;      // max exploration steps before forcing exploitation
+}
+
+// ─── AGI PARADIGM 3: Internal Causal World Model & MCTS ───
+export interface WorldModelConfig {
+  architecture: "mlp" | "transformer" | "gru";
+  latentDim: number;              // world model latent state dimensionality
+  mctsRolloutDepth: number;       // max depth of MCTS search tree
+  mctsSimulations: number;        // number of MCTS rollouts per decision
+  enableDreamTraining: boolean;   // generate synthetic trajectories during idle time
+  dreamBatchSize: number;         // synthetic dream trajectory batch size
+  counterfactualEnabled: boolean; // enable "what if" simulation mode
+}
+
+// ─── AGI PARADIGM 4: Metacognitive Self-Refinement ───
+export interface MetacognitionConfig {
+  confidenceThreshold: number;    // minimum confidence to skip self-review (0.5–0.99)
+  consistencyAuditFreq: number;   // run knowledge consistency check every N interactions
+  nasSearchSpace: {
+    loraRankRange: [number, number];     // e.g. [8, 128]
+    headPruningRange: [number, number];  // e.g. [0, 50] percent
+    layerFreezeRange: [number, number];  // e.g. [0, 16] layers
+  };
+  selfCorrectionAggression: "conservative" | "moderate" | "aggressive";
+  enableNASLite: boolean;
+  nasTrials: number;              // Thompson Sampling trials before convergence
+}
