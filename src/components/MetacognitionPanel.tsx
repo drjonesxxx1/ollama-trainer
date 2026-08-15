@@ -10,6 +10,7 @@ import {
   Wrench,
   BarChart3,
   CheckCircle2,
+  UploadCloud,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -284,9 +285,32 @@ export const MetacognitionPanel: React.FC<MetacognitionPanelProps> = ({ setCurre
 
         <div className="pt-4 border-t border-zinc-800 flex items-center justify-between">
           <button onClick={() => setCurrentStep(7)} className="px-4 py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs rounded-xl font-mono cursor-pointer">← Back to World Model</button>
-          <button onClick={() => setCurrentStep(1)} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-rose-600 to-violet-600 hover:from-rose-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-rose-600/25 cursor-pointer font-mono">
-            <RotateCcw className="w-4 h-4" /> RESTART FULL AGI PIPELINE
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={async () => {
+                try {
+                  const res = await fetch("/api/ollama/create", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ 
+                      modelName: "drjones-tool-beast-refined",
+                      modelfileContent: "FROM drjones-tool-beast\nSYSTEM \"You are a custom calibrated AGI model variant with metacognitive self-correction, 96% tool precision, and Thompson Sampling optimized hyperparameters.\""
+                    })
+                  });
+                  const data = await res.json();
+                  alert(data.message || "Refined model successfully registered to Ollama!");
+                } catch (e: any) {
+                  alert("Error: " + e.message);
+                }
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl font-mono transition cursor-pointer flex items-center gap-2 shadow-lg shadow-blue-600/30"
+            >
+              <UploadCloud className="w-4 h-4" /> UPLOAD REFINED MODEL TO OLLAMA
+            </button>
+            <button onClick={() => setCurrentStep(1)} className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-rose-600 to-violet-600 hover:from-rose-500 hover:to-violet-500 text-white font-bold text-xs rounded-xl transition shadow-lg shadow-rose-600/25 cursor-pointer font-mono">
+              <RotateCcw className="w-4 h-4" /> RESTART FULL AGI PIPELINE
+            </button>
+          </div>
         </div>
       </div>
     </div>
