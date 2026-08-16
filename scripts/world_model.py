@@ -4,8 +4,6 @@ world_model.py — PyTorch Causal World Model & MCTS Planner
 Implements a PyTorch Transformer neural network for latent state prediction (S_{t+1} = f(S_t, A_t)),
 Monte Carlo Tree Search (MCTS) over PyTorch latent tensors, counterfactual risk simulation,
 and synthetic dream backpropagation.
-
-Runs on PyTorch with CUDA/CPU automatic device selection.
 """
 
 import json
@@ -100,19 +98,34 @@ class SystemState:
 
     def apply_action(self, action_str: str) -> "SystemState":
         new_s = json.loads(json.dumps(self.state))
-        if "prune_moe" in action_str:
+        
+        # Check for dangerous destructive commands (Safety Guard filter)
+        dangerous_patterns = [r"rm\s+-rf", r"dd\s+if=", r"mkfs", r"format", r">/dev/sd", r"chmod\s+-R\s+777"]
+        is_dangerous = any(re.search(pat, action_str) for pat in dangerous_patterns) or "rm -rf" in action_str
+        
+        if is_dangerous:
+            new_s["gpu_allocated"] = False
+            new_s["unsloth_ready"] = False
+            new_s["vram_gb"] = 0.0
+            new_s["gguf_quant_ready"] = False
+        elif "prune_moe" in action_str:
             new_s["retained_experts"] = 64
             new_s["vram_gb"] = 6.2
         elif "train_grpo" in action_str:
             new_s["training_epochs"] += 1
-        elif "ollama create" in action_str:
+        elif "deploy" in action_str or "ollama create" in action_str:
             new_s["gguf_quant_ready"] = True
+            
         return SystemState(new_s)
 
+
+# Importing re for regex checking
+import re
 
 class PyTorchMCTSPlanner:
     """Monte Carlo Tree Search planner evaluating trajectories with PyTorch Transformer."""
 
+    # Set actions for planner rollouts
     ACTIONS = [
         "python scripts/prune_moe.py --model qwen2.5-coder:32b --retain 64",
         "python scripts/train_grpo.py --model drjones-tool-beast --epochs 3",
@@ -234,7 +247,12 @@ def main():
 
         print("\n[TEST] All PyTorch world model tests PASSED [OK]")
     else:
-        print("[*] Run with --test for diagnostic mode")
+        # Default run triggered by server
+        wm = WorldModelTransformer().to(DEVICE)
+        init_state = SystemState()
+        planner = PyTorchMCTSPlanner(wm, max_depth=5, simulations=24)
+        result = planner.search(init_state)
+        print(json.dumps(result))
 
 
 if __name__ == "__main__":
