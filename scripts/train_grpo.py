@@ -10,19 +10,10 @@ import sys
 import re
 import json
 import argparse
-
-# Lazy imports for Unsloth and PyTorch to prevent startup failure when packages are missing
-def try_imports():
-    try:
-        import torch
-        from unsloth import FastLanguageModel
-        from trl import GRPOTrainer, GRPOConfig
-        from datasets import Dataset
-        return torch, FastLanguageModel, GRPOTrainer, GRPOConfig, Dataset
-    except ImportError as e:
-        print(f"[!] Warning: Missing Unsloth/TRL/PyTorch/Datasets dependencies: {str(e)}")
-        print("[!] Diagnostic: To run real GRPO RL, install: pip install unsloth trl peft datasets torch")
-        return None, None, None, None, None
+import torch
+from unsloth import FastLanguageModel
+from trl import GRPOTrainer, GRPOConfig
+from datasets import Dataset
 
 def reward_hard_execution(completions, **kwargs) -> list:
     """Reward function evaluating shell/code syntax execution.
@@ -54,7 +45,7 @@ def reward_anti_hesitation(completions, **kwargs) -> list:
             rewards.append(-1.0)
     return rewards
 
-def load_or_generate_dataset(dataset_path: str = "./infra_dataset.jsonl", DatasetClass=None) -> any:
+def load_or_generate_dataset(dataset_path: str = "./infra_dataset.jsonl") -> Dataset:
     """Loads dataset from disk or falls back to synthetic dataset if missing."""
     samples = []
     if os.path.exists(dataset_path):
@@ -82,9 +73,7 @@ def load_or_generate_dataset(dataset_path: str = "./infra_dataset.jsonl", Datase
         "prompt": [item["prompt"] for item in samples],
         "completion": [item["completion"] for item in samples]
     }
-    if DatasetClass is not None:
-        return DatasetClass.from_dict(formatted)
-    return formatted
+    return Dataset.from_dict(formatted)
 
 def run_grpo_training(model_name: str, batch_size: int, grad_accum: int, test_mode: bool = False):
     print("=" * 60)
@@ -92,16 +81,6 @@ def run_grpo_training(model_name: str, batch_size: int, grad_accum: int, test_mo
     print(f"[*] Target Model: {model_name}")
     print("=" * 60)
     
-    torch, FastLanguageModel, GRPOTrainer, GRPOConfig, Dataset = try_imports()
-    
-    if torch is None:
-        print("[SIM] Running in Simulation Mode due to missing local packages...")
-        print("[SIM]   [1/3] Loading Model Checkpoints (Simulated)")
-        print("[SIM]   [2/3] Initializing GRPOTrainer on GPU (Simulated)")
-        print("[SIM]   [3/3] Reward evaluation: Hard Execution Rewards Active (+3.0 / -2.0)")
-        print("[SIM] Done! Mock weights saved to ./deploy_infra_model/unsloth.Q4_K_M.gguf")
-        return
-        
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print(f"[*] Loading model in 4-bit on device: {device}...")
     
@@ -122,7 +101,7 @@ def run_grpo_training(model_name: str, batch_size: int, grad_accum: int, test_mo
         random_state=3407,
     )
     
-    dataset = load_or_generate_dataset(DatasetClass=Dataset)
+    dataset = load_or_generate_dataset()
     
     training_args = GRPOConfig(
         output_dir="outputs",

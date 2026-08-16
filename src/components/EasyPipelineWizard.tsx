@@ -206,41 +206,62 @@ export const EasyPipelineWizard: React.FC<EasyPipelineWizardProps> = ({
   }, [logs]);
 
   // Start Pipeline Simulation / Real GPU Process
-  const handleStartPipeline = () => {
+  const handleStartPipeline = async () => {
     setPipelineRunning(true);
-    setPipelineProgress(0);
+    setPipelineProgress(10);
     setActiveStageIndex(0);
     setLogs([]);
 
-    addLog("INFO", "=== STARTING UN SLOTH MOE & GRPO PIPELINE EXECUTION ON NVIDIA GPU ===");
-    addLog("INFO", `Base Model: ${selectedModel.name} | Target: 16GB VRAM + 64GB System RAM`);
+    addLog("INFO", "=== INITIATING PRODUCTION UN SLOTH MOE & GRPO PIPELINE ===");
+    addLog("INFO", `Base Model: ${selectedModel.name} | Target: NVIDIA GPU`);
     addLog("INFO", `Pruning Configuration: Retaining ${retainedCount}/256 experts per layer`);
 
-    let currentStage = 0;
-    const interval = setInterval(() => {
-      currentStage++;
-      if (currentStage >= stages.length) {
-        clearInterval(interval);
-        setPipelineRunning(false);
-        setPipelineProgress(100);
-        setActiveStageIndex(stages.length - 1);
-        addLog("SUCCESS", "🎉 PIPELINE COMPLETED SUCCESSFULLY! Model exported to Ollama as 'drjones-tool-beast'");
-        setTimeout(() => setCurrentStep(4), 1000);
+    try {
+      addLog("INFO", "Contacting backend fine-tuning orchestrator...");
+      const res = await fetch("/api/pipeline/run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          modelName: selectedModel.name,
+          retainedExperts: retainedCount
+        })
+      });
+      
+      const data = await res.json();
+      
+      if (data.logs && Array.isArray(data.logs)) {
+        let index = 0;
+        const logInterval = setInterval(() => {
+          if (index < data.logs.length) {
+            const entry = data.logs[index];
+            addLog(entry.level, entry.msg);
+            setPipelineProgress(Math.round((index / data.logs.length) * 100));
+            
+            if (entry.msg.includes("pruning")) {
+              setActiveStageIndex(1);
+            } else if (entry.msg.includes("GRPO")) {
+              setActiveStageIndex(3);
+            } else if (entry.msg.includes("GGUF")) {
+              setActiveStageIndex(4);
+            }
+            index++;
+          } else {
+            clearInterval(logInterval);
+            setPipelineRunning(false);
+            setPipelineProgress(100);
+            setActiveStageIndex(4);
+            addLog("SUCCESS", "🎉 PIPELINE COMPLETED SUCCESSFULLY! Model registered in local Ollama!");
+            setTimeout(() => setCurrentStep(4), 1000);
+          }
+        }, 800);
       } else {
-        setActiveStageIndex(currentStage);
-        setPipelineProgress(Math.round(((currentStage) / stages.length) * 100));
-
-        if (currentStage === 1) {
-          addLog("GPU_TRITON", "Calibrated dataset pairs -> 2,500 instruction pairs loaded into GPU memory");
-        } else if (currentStage === 2) {
-          addLog("GPU_TRITON", `Tracing Router Gates Layer 30/61 -> Retaining ${retainedCount} experts. Dropping ${prunedCount} trivia experts.`);
-        } else if (currentStage === 3) {
-          addLog("HARNESS", "Sandbox Gym Initialized: Exit Code 0 = +3.0 reward | Destructive command filter active");
-        } else if (currentStage === 4) {
-          addLog("REWARD", "Unsloth GRPO Step 150/300 | R_exec: +3.00 | R_anti_hesit: +2.00 | Instant Execution Active");
-        }
+        addLog("ERROR", "No log output returned from backend process.");
+        setPipelineRunning(false);
       }
-    }, 2500);
+    } catch (error: any) {
+      addLog("ERROR", `Pipeline crashed: ${error.message}`);
+      setPipelineRunning(false);
+    }
   };
 
   const handleSendMessage = () => {

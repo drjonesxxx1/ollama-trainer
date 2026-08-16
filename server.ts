@@ -395,7 +395,7 @@ app.post("/api/agi/online-learn", async (req, res) => {
     const { stdout } = await execAsync(`python scripts/online_learner.py --test`, { timeout: 15000 });
     res.json({ success: true, output: stdout, config: { ewcLambda, replayBufferSize, microUpdateFreq } });
   } catch (error: any) {
-    res.json({ success: true, output: `[SIM] Plasticity engine: EWC λ=${ewcLambda}, buffer=${replayBufferSize}, freq=${microUpdateFreq}. Micro-update simulated.`, config: { ewcLambda, replayBufferSize, microUpdateFreq } });
+    res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }
 });
 
@@ -409,7 +409,7 @@ app.post("/api/agi/curiosity", async (req, res) => {
     const { stdout } = await execAsync(`python scripts/curiosity_engine.py --test`, { timeout: 15000 });
     res.json({ success: true, output: stdout, config: { explorationRate, rndHiddenDim, goalQueueDepth } });
   } catch (error: any) {
-    res.json({ success: true, output: `[SIM] Curiosity engine: ε=${explorationRate}, RND dim=${rndHiddenDim}. Novelty scan simulated.`, config: { explorationRate, rndHiddenDim, goalQueueDepth } });
+    res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }
 });
 
@@ -423,7 +423,7 @@ app.post("/api/agi/world-model", async (req, res) => {
     const { stdout } = await execAsync(`python scripts/world_model.py --test`, { timeout: 15000 });
     res.json({ success: true, output: stdout, config: { architecture, latentDim, mctsDepth, mctsSims } });
   } catch (error: any) {
-    res.json({ success: true, output: `[SIM] World model: ${architecture} arch, dim=${latentDim}, MCTS depth=${mctsDepth}x${mctsSims} sims. Search simulated.`, config: { architecture, latentDim, mctsDepth, mctsSims } });
+    res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }
 });
 
@@ -437,7 +437,7 @@ app.post("/api/agi/metacognition", async (req, res) => {
     const { stdout } = await execAsync(`python scripts/metacognition.py --test`, { timeout: 15000 });
     res.json({ success: true, output: stdout, config: { confidenceThreshold, auditFrequency, enableNAS, nasTrials } });
   } catch (error: any) {
-    res.json({ success: true, output: `[SIM] Metacognition: confidence=${confidenceThreshold}, audit freq=${auditFrequency}, NAS=${enableNAS}. Self-refinement simulated.`, config: { confidenceThreshold, auditFrequency, enableNAS, nasTrials } });
+    res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }
 });
 
@@ -445,7 +445,6 @@ app.post("/api/agi/metacognition", async (req, res) => {
 app.post("/api/ollama/pull", async (req, res) => {
   const { modelName = "qwen2.5-coder:32b" } = req.body;
 
-  // 1. Try direct Ollama HTTP API endpoint first
   try {
     const apiRes = await fetch("http://localhost:11434/api/pull", {
       method: "POST",
@@ -456,10 +455,9 @@ app.post("/api/ollama/pull", async (req, res) => {
       return res.json({ success: true, message: `Model '${modelName}' pulled & downloaded successfully via Ollama API!` });
     }
   } catch (err) {
-    // API endpoint unreachable or non-streaming
+    // API endpoint unreachable fallback
   }
 
-  // 2. Non-blocking shell execution for `ollama pull` in background
   try {
     const { exec } = await import("child_process");
     exec(`ollama pull ${modelName}`, (error, stdout, stderr) => {
@@ -472,13 +470,56 @@ app.post("/api/ollama/pull", async (req, res) => {
 
     return res.json({
       success: true,
-      message: `Model pull for '${modelName}' initiated in background. Progress can be monitored in terminal or Ollama CLI.`
+      message: `Model pull for '${modelName}' initiated in background.`
     });
   } catch (error: any) {
     return res.json({
       success: true,
       message: `Model '${modelName}' pull request sent.`
     });
+  }
+});
+
+// 13.5. Run Wizard Pipeline Subprocesses
+app.post("/api/pipeline/run", async (req, res) => {
+  const { modelName = "unsloth/Qwen2.5-3B-Instruct", retainedExperts = 64 } = req.body;
+  const logs: Array<{ time: string; level: string; msg: string }> = [];
+  const addLog = (level: string, msg: string) => {
+    const time = new Date().toISOString().split("T")[1].slice(0, 8);
+    logs.push({ time, level, msg });
+  };
+
+  try {
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
+
+    addLog("INFO", "=== STARTING PIPELINE SUBPROCESSES ON GPU ===");
+    
+    addLog("INFO", "[STAGE 1/4] Running expert weight pruning...");
+    const pruneRes = await execAsync(`python scripts/prune_moe.py --model ${modelName} --retain ${retainedExperts}`, { timeout: 15000 });
+    pruneRes.stdout.split("\n").forEach(line => {
+      if (line.trim()) addLog("GPU_TRITON", line);
+    });
+
+    addLog("INFO", "[STAGE 2/4] Running Unsloth GRPO reinforcement learning trainer (test pass)...");
+    const grpoRes = await execAsync(`python scripts/train_grpo.py --model ${modelName} --test`, { timeout: 25000 });
+    grpoRes.stdout.split("\n").forEach(line => {
+      if (line.trim()) addLog("REWARD", line);
+    });
+
+    addLog("INFO", "[STAGE 3/4] Exporting model GGUF config...");
+    const modelfileContent = `FROM ${modelName}\nPARAMETER num_ctx 4096\nSYSTEM "You are a custom Unsloth fine-tuned variant."`;
+    const { writeFileSync, mkdirSync } = await import("fs");
+    mkdirSync("./deploy_infra_model", { recursive: true });
+    writeFileSync("./deploy_infra_model/Modelfile", modelfileContent);
+    await execAsync(`ollama create drjones-tool-beast -f ./deploy_infra_model/Modelfile`);
+    addLog("SUCCESS", "🎉 Model successfully registered to Ollama as 'drjones-tool-beast'");
+
+    res.json({ success: true, logs });
+  } catch (error: any) {
+    addLog("ERROR", `Pipeline crashed: ${error.message}`);
+    res.status(500).json({ success: false, error: error.message, logs });
   }
 });
 
@@ -496,78 +537,74 @@ app.post("/api/pipeline/autopilot-run", async (req, res) => {
     logs.push(`[${new Date().toISOString().split("T")[1].slice(0, 8)}] ${msg}`);
   };
 
-  addLog(`🚀 INITIATING AUTOMATED DISHWASHER MODEL FACTORY FOR: ${baseModelName}`);
-  addLog(`[STAGE 1/8] Base Ollama Model Loaded: ${baseModelName} (Targeting RTX 4080 Super 16GB VRAM)`);
-  addLog(`[STAGE 2/8] Running MoE Router Profiler: Pruning ${triviaDroppingPct}% trivia experts... Saved 3.8GB System RAM.`);
-  addLog(`[STAGE 3/8] Unsloth GRPO RL Execution-in-the-Loop: R_exec reward = +3.00 (Exit code 0 harness match).`);
-  addLog(`[STAGE 4/8] EWC Plasticity & RND Curiosity Exploration: Novelty Score = 0.941.`);
-  addLog(`[STAGE 5/8] Latent MCTS World Model & Metacognition Probe: Calibration ECE = 0.018.`);
-  addLog(`[STAGE 6/8] Quantizing Trained Checkpoint to GGUF Q4_K_M format... Output: ./deploy_infra_model/${customVariantName}.Q4_K_M.gguf`);
+  try {
+    const { exec } = await import("child_process");
+    const { promisify } = await import("util");
+    const execAsync = promisify(exec);
 
-  const modelfileContent = `FROM ${baseModelName}
+    addLog(`🚀 INITIATING AUTOMATED DISHWASHER MODEL FACTORY FOR: ${baseModelName}`);
+    addLog(`[STAGE 1/8] Base Ollama Model Loaded: ${baseModelName} (Targeting RTX 4080 Super 16GB VRAM)`);
+    
+    addLog(`[STAGE 2/8] Running MoE Router Profiler: Pruning ${triviaDroppingPct}% experts...`);
+    const pruneRes = await execAsync(`python scripts/prune_moe.py --model ${baseModelName} --retain ${Math.round(256 * (1 - triviaDroppingPct/100))}`, { timeout: 15000 });
+    pruneRes.stdout.split("\n").forEach(line => { if (line.trim()) addLog(line); });
+    
+    addLog(`[STAGE 3/8] Unsloth GRPO RL Execution-in-the-Loop rewards initialized.`);
+    const grpoRes = await execAsync(`python scripts/train_grpo.py --model ${baseModelName} --test`, { timeout: 25000 });
+    grpoRes.stdout.split("\n").forEach(line => { if (line.trim()) addLog(line); });
+
+    addLog(`[STAGE 4/8] EWC Plasticity & Replay learning loop...`);
+    const learnRes = await execAsync(`python scripts/online_learner.py --test`, { timeout: 15000 });
+    learnRes.stdout.split("\n").forEach(line => { if (line.trim()) addLog(line); });
+
+    addLog(`[STAGE 5/8] Latent MCTS World Model planning search...`);
+    const worldRes = await execAsync(`python scripts/world_model.py --test`, { timeout: 15000 });
+    worldRes.stdout.split("\n").forEach(line => { if (line.trim()) addLog(line); });
+
+    addLog(`[STAGE 6/8] Expected Calibration Error (ECE) head audit...`);
+    const metaRes = await execAsync(`python scripts/metacognition.py --test`, { timeout: 15000 });
+    metaRes.stdout.split("\n").forEach(line => { if (line.trim()) addLog(line); });
+
+    const modelfileContent = `FROM ${baseModelName}
 PARAMETER num_ctx 32768
 PARAMETER temperature 0.4
 PARAMETER top_p 0.9
 SYSTEM """You are a custom AI model variant created by the Ollama Personal Trainer Dishwasher Pipeline. You possess 0 hesitation, 95% tool obsession, and surgical execution speed for Python code, SQL, and MCP tools."""
 `;
 
-  addLog(`[STAGE 7/8] Generated Custom Modelfile with System Prompt & MCP Tool Harness...`);
+    addLog(`[STAGE 7/8] Generated Custom Modelfile with System Prompt & MCP Tool Harness...`);
 
-  // Attempt registration with local Ollama service
-  let registeredToOllama = false;
-  try {
-    const response = await fetch("http://localhost:11434/api/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name: customVariantName,
-        modelfile: modelfileContent,
-        stream: false
-      })
+    const { writeFileSync, mkdirSync } = await import("fs");
+    mkdirSync("./deploy_infra_model", { recursive: true });
+    writeFileSync(`./deploy_infra_model/Modelfile.${customVariantName}`, modelfileContent);
+
+    await execAsync(`ollama create ${customVariantName} -f ./deploy_infra_model/Modelfile.${customVariantName}`);
+    addLog(`[STAGE 8/8] SUCCESS! Model Variant '${customVariantName}' created & registered in Ollama!`);
+
+    return res.json({
+      success: true,
+      modelVariantName: customVariantName,
+      ollamaRunCommand: `ollama run ${customVariantName}`,
+      logs,
+      summary: {
+        baseModel: baseModelName,
+        prunedTriviaExpertsPct: triviaDroppingPct,
+        toolObsessionPct: toolObsessionPct,
+        quantization: "Q4_K_M",
+        vramUsageGb: 5.4,
+        contextLength: 32768,
+        status: "LIVE & READY IN OLLAMA",
+      }
     });
 
-    if (response.ok) {
-      registeredToOllama = true;
-      addLog(`[STAGE 8/8] SUCCESS! Model Variant '${customVariantName}' registered directly into Local Ollama Registry!`);
-    }
-  } catch {
-    // API direct post fallback
+  } catch (error: any) {
+    addLog(`[ERROR] Pipeline failed during execution: ${error.message}`);
+    return res.status(500).json({
+      success: false,
+      error: error.message,
+      logs
+    });
   }
-
-  if (!registeredToOllama) {
-    try {
-      const { exec } = await import("child_process");
-      const { promisify } = await import("util");
-      const { writeFileSync, mkdirSync } = await import("fs");
-      const execAsync = promisify(exec);
-
-      mkdirSync("./deploy_infra_model", { recursive: true });
-      writeFileSync(`./deploy_infra_model/Modelfile.${customVariantName}`, modelfileContent);
-
-      await execAsync(`ollama create ${customVariantName} -f ./deploy_infra_model/Modelfile.${customVariantName}`);
-      addLog(`[STAGE 8/8] SUCCESS! Model Variant '${customVariantName}' created & registered in Ollama CLI!`);
-      registeredToOllama = true;
-    } catch {
-      addLog(`[STAGE 8/8] REGISTERED MODEL VARIANT: '${customVariantName}:latest' (Ollama Local API Ready)`);
-      registeredToOllama = true;
-    }
-  }
-
-  return res.json({
-    success: true,
-    modelVariantName: customVariantName,
-    ollamaRunCommand: `ollama run ${customVariantName}`,
-    logs,
-    summary: {
-      baseModel: baseModelName,
-      prunedTriviaExpertsPct: triviaDroppingPct,
-      toolObsessionPct: toolObsessionPct,
-      quantization: "Q4_K_M",
-      vramUsageGb: 5.4,
-      contextLength: 32768,
-      status: "LIVE & READY IN OLLAMA",
-    }
-  });
 });
 
 // Setup Vite middleware for full-stack SPA development
