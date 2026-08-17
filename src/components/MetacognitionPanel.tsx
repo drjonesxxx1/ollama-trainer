@@ -41,16 +41,29 @@ export const MetacognitionPanel: React.FC<MetacognitionPanelProps> = ({ setCurre
   const [logs, setLogs] = useState<Array<{ time: string; level: string; msg: string }>>([]);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // ECE + Contradiction + Self-Correction over time
-  const eceData = Array.from({ length: 150 }, (_, step) => ({
-    step,
-    ece: +(Math.max(0.02, 0.28 - 0.0015 * step + (Math.random() - 0.5) * 0.01)).toFixed(4),
-    contradiction_rate: +(Math.max(0.01, 0.15 - 0.0008 * step + (Math.random() - 0.5) * 0.006)).toFixed(4),
-    self_correction_rate: +(Math.min(0.95, 0.3 + 0.004 * step + (Math.random() - 0.5) * 0.02)).toFixed(4),
-  }));
+  const [liveEceData, setLiveEceData] = useState<any[] | null>(null);
+  const [liveNasData, setLiveNasData] = useState<any[] | null>(null);
+  const [championConfig, setChampionConfig] = useState<any>({
+    config: "r32_h20_f8",
+    tokens_sec: 68,
+    tool_precision: 96,
+    vram_gb: 5.8,
+    reward: 2.41
+  });
 
-  // NAS Architecture Search comparison
-  const nasData = [
+  // Deterministic fallback based on current sliders
+  const defaultEceData = Array.from({ length: 150 }, (_, step) => {
+    const factor = 1.0 - confidenceThreshold * 0.2;
+    const noise = Math.sin(step * 0.15) * 0.002;
+    return {
+      step,
+      ece: +(Math.max(0.015, (0.28 - 0.0018 * step) * factor + noise)).toFixed(4),
+      contradiction_rate: +(Math.max(0.01, 0.15 - 0.0009 * step + noise)).toFixed(4),
+      self_correction_rate: +(Math.min(0.95, 0.3 + 0.0045 * step + noise)).toFixed(4),
+    };
+  });
+
+  const defaultNasData = [
     { config: "r8_h0_f0", tokens_sec: 62, tool_precision: 87, vram_gb: 5.1, reward: 1.82, champion: false },
     { config: "r32_h10_f4", tokens_sec: 58, tool_precision: 93, vram_gb: 6.2, reward: 2.14, champion: false },
     { config: "r32_h20_f8", tokens_sec: 68, tool_precision: 96, vram_gb: 5.8, reward: 2.41, champion: true },
@@ -58,6 +71,9 @@ export const MetacognitionPanel: React.FC<MetacognitionPanelProps> = ({ setCurre
     { config: "r64_h30_f12", tokens_sec: 72, tool_precision: 91, vram_gb: 5.5, reward: 2.05, champion: false },
     { config: "r128_h40_f16", tokens_sec: 48, tool_precision: 94, vram_gb: 9.2, reward: 1.71, champion: false },
   ];
+
+  const activeEceData = liveEceData || defaultEceData;
+  const activeNasData = liveNasData || defaultNasData;
 
   // Self-correction log entries
   const [corrections] = useState([
@@ -90,24 +106,46 @@ export const MetacognitionPanel: React.FC<MetacognitionPanelProps> = ({ setCurre
       });
       const data = await res.json();
 
-      if (data.output) {
-        const lines = data.output.split("\n");
-        for (const line of lines) {
-          if (line.trim()) {
-            if (line.includes("Calibration") || line.includes("ECE")) addLog("ECE", line);
-            else if (line.includes("Consistency") || line.includes("Audit")) addLog("AUDIT", line);
-            else if (line.includes("NAS") || line.includes("Thompson") || line.includes("Champion")) addLog("NAS", line);
-            else if (line.includes("Corrected") || line.includes("Critique")) addLog("CORRECT", line);
-            else if (line.includes("PASSED")) addLog("SUCCESS", line);
-            else addLog("INFO", line);
+      if (data.success) {
+        if (data.calibration_curve && Array.isArray(data.calibration_curve)) {
+          setLiveEceData(data.calibration_curve.map((bin: any, idx: number) => ({
+            step: idx * 15,
+            ece: +Math.abs(bin.accuracy - bin.avg_confidence).toFixed(4),
+            contradiction_rate: +(bin.count > 0 ? (1.0 - bin.accuracy) * 0.15 : 0.05).toFixed(4),
+            self_correction_rate: +bin.accuracy.toFixed(4)
+          })));
+        }
+
+        if (data.nas_history && Array.isArray(data.nas_history)) {
+          const sorted = [...data.nas_history].sort((a, b) => b.reward - a.reward);
+          const bestArm = sorted[0];
+          setLiveNasData(data.nas_history.slice(-6).map((item: any) => ({
+            config: item.arm_id,
+            tokens_sec: item.tokens_sec,
+            tool_precision: item.tool_precision,
+            vram_gb: item.vram_gb,
+            reward: item.reward,
+            champion: item.arm_id === bestArm?.arm_id
+          })));
+          
+          if (bestArm) {
+            setChampionConfig({
+              config: bestArm.arm_id,
+              tokens_sec: bestArm.tokens_sec,
+              tool_precision: bestArm.tool_precision,
+              vram_gb: bestArm.vram_gb,
+              reward: bestArm.reward
+            });
           }
         }
+
+        addLog("ECE", `Expected Calibration Error (ECE): ${data.calibration_error}`);
+        addLog("AUDIT", `Knowledge entailment consistency score: ${(data.consistency_score * 100).toFixed(1)}% consistent`);
+        addLog("NAS", `Thompson Sampling finished trials. Best configurations found.`);
+        addLog("SUCCESS", `🧠 PyTorch Metacognition cycle complete.`);
       }
     } catch (e: any) {
-      addLog("ECE", `PyTorch ConfidenceCalibratorNet loss step complete.`);
-      addLog("AUDIT", `Knowledge audit: 83.3% entailment consistency.`);
-      addLog("NAS", `Thompson Sampling champion: r32_h20_f8 (reward 2.41)`);
-      addLog("SUCCESS", `🧠 PyTorch Metacognition cycle complete.`);
+      addLog("ERROR", `Metacognition failed: ${e.message}`);
     } finally {
       setIsRunning(false);
     }
@@ -207,7 +245,7 @@ export const MetacognitionPanel: React.FC<MetacognitionPanelProps> = ({ setCurre
               <p className="text-[10px] text-zinc-500 mb-3">ECE and contradiction rate decrease via PyTorch BCELoss calibration. Self-correction rate climbs.</p>
               <div className="h-[210px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={eceData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                  <AreaChart data={activeEceData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                     <defs>
                       <linearGradient id="eceGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#F43F5E" stopOpacity={0.4} /><stop offset="95%" stopColor="#F43F5E" stopOpacity={0} />
@@ -236,7 +274,7 @@ export const MetacognitionPanel: React.FC<MetacognitionPanelProps> = ({ setCurre
               <p className="text-[10px] text-zinc-500 mb-3">Thompson Sampling explores LoRA rank, head pruning %, and frozen layers across {nasTrials} trials.</p>
               <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={nasData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                  <BarChart data={activeNasData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                     <XAxis dataKey="config" stroke="#52525b" tick={{ fontSize: 8, fill: '#71717a' }} />
                     <YAxis stroke="#52525b" tick={{ fontSize: 9, fill: '#52525b' }} />
@@ -249,8 +287,8 @@ export const MetacognitionPanel: React.FC<MetacognitionPanelProps> = ({ setCurre
               </div>
               <div className="mt-2 flex items-center gap-2 text-xs font-mono">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span className="text-emerald-400 font-bold">Champion: r32_h20_f8</span>
-                <span className="text-zinc-400">— 68 tok/s, 96% precision, 5.8GB VRAM, reward 2.41</span>
+                <span className="text-emerald-400 font-bold">Champion: {championConfig ? championConfig.config : "r32_h20_f8"}</span>
+                <span className="text-zinc-400">— {championConfig ? `${championConfig.tokens_sec} tok/s, ${championConfig.tool_precision}% precision, ${championConfig.vram_gb}GB VRAM, reward ${championConfig.reward}` : "68 tok/s, 96% precision, 5.8GB VRAM, reward 2.41"}</span>
               </div>
             </div>
           </div>

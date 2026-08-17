@@ -392,8 +392,9 @@ app.post("/api/agi/online-learn", async (req, res) => {
     const { exec } = await import("child_process");
     const { promisify } = await import("util");
     const execAsync = promisify(exec);
-    const { stdout } = await execAsync(`python scripts/online_learner.py --test`, { timeout: 15000 });
-    res.json({ success: true, output: stdout, config: { ewcLambda, replayBufferSize, microUpdateFreq } });
+    const { stdout } = await execAsync(`python scripts/online_learner.py`, { timeout: 15000 });
+    const parsed = JSON.parse(stdout.trim());
+    res.json({ success: true, ...parsed, config: { ewcLambda, replayBufferSize, microUpdateFreq } });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }
@@ -406,8 +407,9 @@ app.post("/api/agi/curiosity", async (req, res) => {
     const { exec } = await import("child_process");
     const { promisify } = await import("util");
     const execAsync = promisify(exec);
-    const { stdout } = await execAsync(`python scripts/curiosity_engine.py --test`, { timeout: 15000 });
-    res.json({ success: true, output: stdout, config: { explorationRate, rndHiddenDim, goalQueueDepth } });
+    const { stdout } = await execAsync(`python scripts/curiosity_engine.py`, { timeout: 15000 });
+    const parsed = JSON.parse(stdout.trim());
+    res.json({ success: true, ...parsed, config: { explorationRate, rndHiddenDim, goalQueueDepth } });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }
@@ -420,8 +422,9 @@ app.post("/api/agi/world-model", async (req, res) => {
     const { exec } = await import("child_process");
     const { promisify } = await import("util");
     const execAsync = promisify(exec);
-    const { stdout } = await execAsync(`python scripts/world_model.py --test`, { timeout: 15000 });
-    res.json({ success: true, output: stdout, config: { architecture, latentDim, mctsDepth, mctsSims } });
+    const { stdout } = await execAsync(`python scripts/world_model.py`, { timeout: 15000 });
+    const parsed = JSON.parse(stdout.trim());
+    res.json({ success: true, ...parsed, config: { architecture, latentDim, mctsDepth, mctsSims } });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }
@@ -434,8 +437,9 @@ app.post("/api/agi/metacognition", async (req, res) => {
     const { exec } = await import("child_process");
     const { promisify } = await import("util");
     const execAsync = promisify(exec);
-    const { stdout } = await execAsync(`python scripts/metacognition.py --test`, { timeout: 15000 });
-    res.json({ success: true, output: stdout, config: { confidenceThreshold, auditFrequency, enableNAS, nasTrials } });
+    const { stdout } = await execAsync(`python scripts/metacognition.py`, { timeout: 15000 });
+    const parsed = JSON.parse(stdout.trim());
+    res.json({ success: true, ...parsed, config: { confidenceThreshold, auditFrequency, enableNAS, nasTrials } });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message, stdout: error.stdout || "" });
   }

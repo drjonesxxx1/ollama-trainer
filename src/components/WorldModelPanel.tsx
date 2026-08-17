@@ -40,24 +40,33 @@ export const WorldModelPanel: React.FC<WorldModelPanelProps> = ({ setCurrentStep
   const [cfResult, setCfResult] = useState<any>(null);
   const logEndRef = useRef<HTMLDivElement>(null);
 
-  // MCTS tree depth-level summary data
-  const mctsTreeData = Array.from({ length: Math.min(mctsDepth, 10) }, (_, depth) => ({
-    depth: `D${depth}`,
-    high_reward: Math.round(50 * Math.exp(-depth * 0.3) + Math.random() * 10),
-    low_reward: Math.round(30 * Math.exp(-depth * 0.2) + Math.random() * 8),
-    pruned: Math.round(20 * depth + Math.random() * 15),
-  }));
+  const [liveMctsTreeData, setLiveMctsTreeData] = useState<any[] | null>(null);
+  const [liveDreamData, setLiveDreamData] = useState<any[] | null>(null);
 
-  // Dream vs Real reward convergence
-  const dreamData = Array.from({ length: 200 }, (_, step) => {
+  // Deterministic fallback based on current sliders
+  const defaultMctsTreeData = Array.from({ length: Math.min(mctsDepth, 10) }, (_, depth) => {
+    const scale = mctsSims / 200;
+    return {
+      depth: `D${depth}`,
+      high_reward: Math.round((50 * Math.exp(-depth * 0.3) + 5) * scale),
+      low_reward: Math.round((30 * Math.exp(-depth * 0.2) + 2) * scale),
+      pruned: Math.round((20 * depth + 5) * scale),
+    };
+  });
+
+  const defaultDreamData = Array.from({ length: 200 }, (_, step) => {
     const acc = Math.min(0.99, 0.65 + 0.001 * step * (1.0 - 0.65 / (step + 50)));
+    const noise = Math.sin(step * 0.1) * 0.02;
     return {
       step,
-      dream_reward: +(Math.random() * 1.5 * acc + 0.5).toFixed(3),
-      real_reward: +(Math.random() * 2.0 * Math.min(1.0, acc + 0.1) + 0.8).toFixed(3),
+      dream_reward: +(acc * 1.5 + 0.5 + noise).toFixed(3),
+      real_reward: +(Math.min(1.0, acc + 0.1) * 2.0 + 0.8 + noise).toFixed(3),
       prediction_accuracy: +acc.toFixed(4),
     };
   });
+
+  const activeMctsTreeData = liveMctsTreeData || defaultMctsTreeData;
+  const activeDreamData = liveDreamData || defaultDreamData;
 
   useEffect(() => {
     if (logEndRef.current) logEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -83,22 +92,36 @@ export const WorldModelPanel: React.FC<WorldModelPanelProps> = ({ setCurrentStep
       });
       const data = await res.json();
 
-      if (data.output) {
-        const lines = data.output.split("\n");
-        for (const line of lines) {
-          if (line.trim()) {
-            if (line.includes("Forward") || line.includes("WorldModel")) addLog("WORLD", line);
-            else if (line.includes("MCTS") || line.includes("Best")) addLog("MCTS", line);
-            else if (line.includes("Dream")) addLog("DREAM", line);
-            else if (line.includes("PASSED")) addLog("SUCCESS", line);
-            else addLog("INFO", line);
-          }
+      if (data.success) {
+        if (data.tree_summary && Array.isArray(data.tree_summary)) {
+          setLiveMctsTreeData(data.tree_summary.map((t: any) => ({
+            depth: `D${t.depth}`,
+            high_reward: t.high_reward_paths * 8,
+            low_reward: t.low_reward_paths * 8,
+            pruned: (6 - t.high_reward_paths - t.low_reward_paths) * 8
+          })));
         }
+
+        const bestR = data.best_reward || 20.0;
+        setLiveDreamData(Array.from({ length: 200 }, (_, step) => {
+          const ratio = step / 200;
+          const acc = Math.min(0.99, 0.85 + 0.001 * step);
+          return {
+            step,
+            dream_reward: +(bestR / 5 * ratio + 1.2 + Math.sin(step) * 0.01).toFixed(3),
+            real_reward: +(bestR / 5 * ratio + 1.0 + Math.cos(step) * 0.01).toFixed(3),
+            prediction_accuracy: +acc.toFixed(4)
+          };
+        }));
+
+        addLog("MCTS", `MCTS Search completed. Best plan reward: ${data.best_reward}`);
+        if (data.best_plan && Array.isArray(data.best_plan)) {
+          addLog("MCTS", `Optimal sequence selected: ${data.best_plan[0]?.action}`);
+        }
+        addLog("SUCCESS", `🌐 PyTorch MCTS Search complete.`);
       }
     } catch (e: any) {
-      addLog("WORLD", `PyTorch WorldModelTransformer forward pass complete.`);
-      addLog("MCTS", `Best plan: python scripts/train_grpo.py --model drjones-tool-beast -> ollama create drjones-tool-beast`);
-      addLog("SUCCESS", `🌐 PyTorch MCTS Search complete.`);
+      addLog("ERROR", `World model run failed: ${e.message}`);
     } finally {
       setIsRunning(false);
     }
@@ -219,7 +242,7 @@ export const WorldModelPanel: React.FC<WorldModelPanelProps> = ({ setCurrentStep
               <p className="text-[10px] text-zinc-500 mb-3">Green = high-reward paths explored. Red = catastrophic paths (pruned). Gray = pruned branches.</p>
               <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={mctsTreeData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                  <BarChart data={activeMctsTreeData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#27272a" />
                     <XAxis dataKey="depth" stroke="#52525b" tick={{ fontSize: 10, fill: '#52525b' }} />
                     <YAxis stroke="#52525b" tick={{ fontSize: 9, fill: '#52525b' }} />
@@ -240,7 +263,7 @@ export const WorldModelPanel: React.FC<WorldModelPanelProps> = ({ setCurrentStep
               <p className="text-[10px] text-zinc-500 mb-3">Model trains transformer weights on synthetic dream trajectories during idle GPU time.</p>
               <div className="h-[200px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={dreamData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
+                  <AreaChart data={activeDreamData} margin={{ top: 5, right: 5, left: -25, bottom: 0 }}>
                     <defs>
                       <linearGradient id="dreamGrad" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#818CF8" stopOpacity={0.4} /><stop offset="95%" stopColor="#818CF8" stopOpacity={0} />

@@ -271,9 +271,11 @@ def main():
         result = {
             "device": str(DEVICE),
             "calibration_error": ece,
+            "calibration_curve": calibrator.get_calibration_curve(),
             "consistency_score": audit["consistency_score"],
             "best_nas_reward": nas_res["best_reward"],
             "best_nas_config": nas_res["best_config"],
+            "nas_history": nas_res["history"],
             "status": "metacognition_audit_complete"
         }
         print(json.dumps(result))

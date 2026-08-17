@@ -261,6 +261,7 @@ def online_micro_update(model_name: str = "drjones-tool-beast",
         "layers_plastic": 32 - frozen_count,
         "ewc_lambda": ewc_lambda,
         "learning_rate": learning_rate,
+        "layer_importances": importances,
         "status": "pytorch_micro_update_complete"
     }
 

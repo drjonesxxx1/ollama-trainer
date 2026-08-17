@@ -234,7 +234,27 @@ def main():
 
         print("\n[TEST] All PyTorch curiosity engine tests PASSED [OK]")
     else:
-        print("[*] Run with --test for diagnostic mode")
+        rnd = PyTorchRNDCuriosityModule(in_dim=128, hidden_dim=256)
+        test_state = "def optimize_dataset_pairs(): pass"
+        initial_novelty = rnd.intrinsic_reward(test_state)
+        for _ in range(5):
+            rnd.train_step(test_state)
+        updated_novelty = rnd.intrinsic_reward(test_state)
+        
+        novelty_map = rnd.get_domain_novelty_map()
+        goal_queue = AutonomousGoalQueue()
+        goals = goal_queue.generate_goals(rnd, count=10)
+        
+        result = {
+            "device": str(DEVICE),
+            "initial_novelty": initial_novelty,
+            "updated_novelty": updated_novelty,
+            "novelty_reduction": initial_novelty - updated_novelty,
+            "novelty_map": novelty_map,
+            "goals": goals,
+            "status": "curiosity_novelty_scan_complete"
+        }
+        print(json.dumps(result))
 
 
 if __name__ == "__main__":
