@@ -251,7 +251,6 @@ export const EasyPipelineWizard: React.FC<EasyPipelineWizardProps> = ({
             setPipelineProgress(100);
             setActiveStageIndex(4);
             addLog("SUCCESS", "🎉 PIPELINE COMPLETED SUCCESSFULLY! Model registered in local Ollama!");
-            setTimeout(() => setCurrentStep(4), 1000);
           }
         }, 800);
       } else {
